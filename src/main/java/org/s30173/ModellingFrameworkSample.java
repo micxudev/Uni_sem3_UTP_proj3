@@ -72,7 +72,7 @@ public class ModellingFrameworkSample {
 
         JButton runModelBtn = new JButton("Run model");
         styleButton(runModelBtn);
-        runModelBtn.addActionListener(_ -> runModelButtonClickAction());
+        runModelBtn.addActionListener(_ -> runModelClickAction());
 
         rmp.add(Box.createHorizontalGlue());
         rmp.add(runModelBtn);
@@ -184,7 +184,7 @@ public class ModellingFrameworkSample {
         fc.setFileSelectionMode(JFileChooser.FILES_ONLY);
         fc.setFileFilter(new FileNameExtensionFilter("(*.groovy)", "groovy"));
         fc.setDialogTitle("Choose groovy script file");
-        fc.setCurrentDirectory(new File("src/data"));
+        fc.setCurrentDirectory(new File(DATA_DIR));
 
         int r = fc.showOpenDialog(frame);
         if (r == JFileChooser.APPROVE_OPTION)
@@ -257,12 +257,19 @@ public class ModellingFrameworkSample {
         }
     }
 
-    private static void runModelButtonClickAction() {
-        controller = new Controller(MODELS_PACKAGE + modelList.getSelectedValue());
-        controller.readDataFrom(DATA_DIR + dataList.getSelectedValue())
-            .runModel();
+    private static void runModelClickAction() {
+        String modelValue = modelList.getSelectedValue();
+        String dataValue = dataList.getSelectedValue();
+
+        if (modelValue == null || dataValue == null) {
+            JOptionPane.showMessageDialog(frame, "Choose model and data first", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        controller = new Controller(MODELS_PACKAGE + modelValue);
+        controller.readDataFrom(DATA_DIR + dataValue).runModel();
         String res = controller.getResultsAsTsv();
-        System.out.println(res);
+        //System.out.println(res);
     }
 
     private static void runScriptFromFileClickAction(JFileChooser fc) {

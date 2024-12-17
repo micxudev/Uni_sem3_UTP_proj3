@@ -20,7 +20,7 @@ public class Controller {
     private Model model;
 
     private String[] lata;
-    private HashMap<String, Object[]> newScriptFields;
+    private final HashMap<String, Object> newScriptFields;
 
     public Controller(String modelClassName) {
         this.modelClassName = modelClassName;
@@ -28,9 +28,9 @@ public class Controller {
     }
 
     public Controller readDataFrom(String fileName) {
-        newScriptFields.clear(); // clear fields that were added when scripting
         LinkedHashMap<String, ArrayList<Double>> data = new LinkedHashMap<>();
 
+        // read the data from the file
         try (Stream<String> lines = Files.lines(Path.of(fileName))) {
             lines.forEach(line -> {
                 if (line.startsWith("LATA ")) {
@@ -129,9 +129,7 @@ public class Controller {
 
             });
 
-        // TODO: make fields added using script available as well
         newScriptFields.forEach(groovy::put);
-
         groovy.eval(script);
 
         // repaint the table (insert new values)
@@ -159,10 +157,27 @@ public class Controller {
                 });
 
 
-        // TODO: add fields created in script to the table and save them for future scripts
         Bindings bindings = groovy.getBindings(ScriptContext.ENGINE_SCOPE);
-        bindings.entrySet().forEach(entry -> {
+        Map<String, Object> fieldsWithBind = getFieldsWithBindFromModel();
+        bindings.forEach((key, value) -> {
+            if (key.length() == 1 &&
+                Character.isLetter(key.charAt(0)) &&
+                Character.isLowerCase(key.charAt(0))) {
+                return;
+            }
+
             // add new entries to the map newScriptFields
+            if (!fieldsWithBind.containsKey(key)) {
+                newScriptFields.put(key, value);
+
+                // data for table
+                Object[] tableRowData = new Object[lata.length+1];
+                tableRowData[0] = key;
+                Object[] data = formatFieldValueAsObjArr(value);
+                System.arraycopy(data, 0, tableRowData, 1, data.length);
+
+                tableModel.addRow(tableRowData);
+            }
         });
 
         return this;
@@ -264,5 +279,20 @@ public class Controller {
         return formattedNum;
     }
 
-    private static Set<?> get
+    private Map<String, Object> getFieldsWithBindFromModel() {
+        Map<String, Object> map = new HashMap<>();
+        Arrays.stream(model.getClass().getDeclaredFields())
+                .filter(field -> field.isAnnotationPresent(Bind.class))
+                .forEach(field -> {
+                    field.setAccessible(true);
+                    try {
+                        String name = field.getName();
+                        Object value = field.get(model);
+                        map.put(name, value);
+                    } catch (IllegalAccessException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+        return map;
+    }
 }
