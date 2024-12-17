@@ -32,12 +32,11 @@ public class ModellingFrameworkSample {
 
     private static Controller controller;
 
-
     private static final JFrame frame = new JFrame("Modelling framework sample");
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(ModellingFrameworkSample::initializeGUI);
-        loadModelsAndDataToLists();
+        loadModelsAndDataIntoLists();
     }
 
 
@@ -67,16 +66,13 @@ public class ModellingFrameworkSample {
         configureList(modelList);
         configureList(dataList);
 
-        JPanel rmp = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 5));
-        rmp.setOpaque(false);
-
         JButton runModelBtn = new JButton("Run model");
         styleButton(runModelBtn);
         runModelBtn.addActionListener(_ -> runModelClickAction());
 
-        rmp.add(Box.createHorizontalGlue());
+        JPanel rmp = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 5));
+        rmp.setOpaque(false);
         rmp.add(runModelBtn);
-        rmp.add(Box.createHorizontalGlue());
 
         JPanel gapPanel = new JPanel();
         gapPanel.setOpaque(false);
@@ -99,7 +95,6 @@ public class ModellingFrameworkSample {
         viewTable.setForeground(FG_COLOR2);
         viewTable.setFont(PLAIN_M_FONT);
         viewTable.setRowHeight(22);
-        viewTable.setRowMargin(5);
         viewTable.setGridColor(Color.BLACK);
         viewTable.setIntercellSpacing(new Dimension(10,0));
 
@@ -150,20 +145,20 @@ public class ModellingFrameworkSample {
         l.setCellRenderer(new DefaultListCellRenderer() {
             @Override
             public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
-                JLabel label = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
-                label.setFont(PLAIN_M_FONT);
-                label.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
-                label.setOpaque(true);
+                JLabel l = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                l.setFont(PLAIN_M_FONT);
+                l.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
+                l.setOpaque(true);
 
                 if (isSelected) {
-                    label.setBackground(SELECTED_COLOR);
-                    label.setForeground(FG_COLOR2);
+                    l.setBackground(SELECTED_COLOR);
+                    l.setForeground(FG_COLOR2);
                 } else {
-                    label.setBackground(BG_COLOR2);
-                    label.setForeground(FG_COLOR);
+                    l.setBackground(BG_COLOR2);
+                    l.setForeground(FG_COLOR);
                 }
 
-                return label;
+                return l;
             }
         });
     }
@@ -213,18 +208,18 @@ public class ModellingFrameworkSample {
         JPanel dbp = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         dbp.setOpaque(false);
 
-        JButton okBtn = new JButton("OK");
-        styleButton(okBtn);
-        dbp.add(okBtn);
-        okBtn.addActionListener(_ -> {
-            runAdhocScriptClickAction(sa);
-            sd.dispose();
+        JButton runBtn = new JButton("Run");
+        styleButton(runBtn);
+        runBtn.addActionListener(_ -> {
+            if(runAdhocScriptClickAction(sa))
+                sd.dispose();
         });
+        dbp.add(runBtn);
 
-        JButton cancelBtn = new JButton("Cancel");
-        styleButton(cancelBtn);
-        dbp.add(cancelBtn);
-        cancelBtn.addActionListener(_ -> sd.dispose());
+        JButton closeBtn = new JButton("Close");
+        styleButton(closeBtn);
+        closeBtn.addActionListener(_ -> sd.dispose());
+        dbp.add(closeBtn);
 
         sd.add(dbp, BorderLayout.SOUTH);
         sd.setLocationRelativeTo(frame);
@@ -233,7 +228,7 @@ public class ModellingFrameworkSample {
 
 
     // ----- Logic -----
-    private static void loadModelsAndDataToLists() {
+    private static void loadModelsAndDataIntoLists() {
         try {
             DirectoryStream<Path> modelsStream = Files.newDirectoryStream(Path.of(MODELS_DIR));
             modelsStream.forEach(file -> {
@@ -269,22 +264,23 @@ public class ModellingFrameworkSample {
         controller = new Controller(MODELS_PACKAGE + modelValue);
         controller.readDataFrom(DATA_DIR + dataValue).runModel();
         String res = controller.getResultsAsTsv();
-        //System.out.println(res);
     }
 
     private static void runScriptFromFileClickAction(JFileChooser fc) {
         try {
             controller.runScriptFromFile(fc.getSelectedFile().getAbsolutePath());
         } catch (ScriptException e) {
-            JOptionPane.showMessageDialog(frame, "Invalid Script", "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(frame, "Invalid groovy script in the file", "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
-    private static void runAdhocScriptClickAction(JTextArea sa) {
+    private static boolean runAdhocScriptClickAction(JTextArea sa) {
         try {
             controller.runScript(sa.getText());
+            return true;
         } catch (ScriptException e) {
-            JOptionPane.showMessageDialog(frame, "Invalid Script", "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(frame, "Invalid groovy script", "Error", JOptionPane.ERROR_MESSAGE);
+            return false;
         }
     }
 }
