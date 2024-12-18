@@ -166,7 +166,7 @@ public class Controller {
                 res
                 .append(name)
                 .append("\t")
-                .append(formatFieldValueAsStr(value))
+                .append(fieldValueToStr(value))
                 .append("\n");
             } catch (IllegalAccessException e) {
                 throw new RuntimeException(e);
@@ -202,52 +202,6 @@ public class Controller {
         return arr;
     }
 
-    private String formatFieldValueAsStr(Object value) {
-        if (value == null)
-            return "null";
-
-        if (value.getClass().isArray()) {
-            if (value instanceof double[]) {
-                return Arrays.stream((double[]) value)
-                        .mapToObj(Double::toString)
-                        .collect(Collectors.joining("\t"));
-            }
-        }
-
-        return value.toString();
-    }
-
-    private Object[] formatFieldValueAsObjArr(Object value) {
-        if (value == null)
-            return new Object[0];
-
-        if (value.getClass().isArray()) {
-            if (value instanceof double[]) {
-                return Arrays.stream((double[]) value)
-                        .mapToObj(Controller::formatNumber)
-                        .toArray();
-            }
-        }
-
-        return new String[]{value.toString()};
-    }
-
-    private static String formatNumber(double number) {
-        DecimalFormatSymbols symbols = new DecimalFormatSymbols();
-        symbols.setDecimalSeparator(',');
-        symbols.setGroupingSeparator(' ');
-
-        String pattern = number < 1000 ? "#,##0.##" : "#,##0.#";
-
-        DecimalFormat df = new DecimalFormat(pattern, symbols);
-        String formattedNum = df.format(number);
-
-        if (formattedNum.endsWith(",0"))
-            formattedNum = formattedNum.substring(0, formattedNum.length() - 2);
-
-        return formattedNum;
-    }
-
     private LinkedHashMap<String, Object> getFieldsNamesWithBindFromModel() {
         LinkedHashMap<String, Object> map = new LinkedHashMap<>();
         bindFields.forEach((field, name) -> {
@@ -260,11 +214,53 @@ public class Controller {
         return map;
     }
 
+    private Object[] formatFieldValues(Object value) {
+        if (value == null)
+            return new Object[0];
+
+        if (value.getClass().isArray() && value instanceof double[])
+            return Arrays.stream((double[]) value)
+                    .mapToObj(Controller::formatNumber)
+                    .toArray();
+
+        return new String[]{value.toString()};
+    }
+
+    private static String formatNumber(double number) {
+        DecimalFormatSymbols symbols = new DecimalFormatSymbols();
+        symbols.setDecimalSeparator(',');
+        symbols.setGroupingSeparator(' ');
+
+        String pattern = number < 100 ? "#,##0.##" : "#,##0.#";
+
+        DecimalFormat decFormat = new DecimalFormat(pattern, symbols);
+        String formattedNumber = decFormat.format(number);
+
+        if (formattedNumber.endsWith(symbols.getDecimalSeparator() + "0"))
+            formattedNumber = formattedNumber.substring(0, formattedNumber.length() - 2);
+
+        return formattedNumber;
+    }
+
     private void addNewRow(String name, Object value) {
         Object[] tableRowData = new Object[lata.length+1];
         tableRowData[0] = name;
-        Object[] data = formatFieldValueAsObjArr(value);
+        Object[] data = formatFieldValues(value);
         System.arraycopy(data, 0, tableRowData, 1, data.length);
         tableModel.addRow(tableRowData);
+    }
+
+
+    // For console log
+    private String fieldValueToStr(Object value) {
+        if (value == null)
+            return "NULL";
+
+        if (value.getClass().isArray() && value instanceof double[])
+            return Arrays.stream((double[]) value)
+                    .mapToObj(Double::toString)
+                    .collect(Collectors.joining("\t"));
+
+        return value.toString();
     }
 }
