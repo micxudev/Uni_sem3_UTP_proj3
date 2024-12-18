@@ -177,9 +177,8 @@ public class ModellingFrameworkSample {
     private static void scriptFileButtonClickAction() {
         JFileChooser fc = new JFileChooser();
         fc.setFileSelectionMode(JFileChooser.FILES_ONLY);
-        fc.setFileFilter(new FileNameExtensionFilter("(*.groovy)", "groovy"));
-        fc.setDialogTitle("Choose groovy script file");
-        fc.setCurrentDirectory(new File(DATA_DIR));
+        fc.setDialogTitle("Choose script file");
+        fc.setCurrentDirectory(new File(SCRIPTS_DIR));
 
         int r = fc.showOpenDialog(frame);
         if (r == JFileChooser.APPROVE_OPTION)
@@ -239,13 +238,7 @@ public class ModellingFrameworkSample {
             modelsStream.close();
 
             DirectoryStream<Path> dataStream = Files.newDirectoryStream(Path.of(DATA_DIR));
-            dataStream.forEach(file -> {
-                String fileName = file.getFileName().toString();
-                String extension = fileName.substring(fileName.lastIndexOf(".") + 1);
-                if (extension.equalsIgnoreCase("txt")) {
-                    dataListModel.addElement(fileName);
-                }
-            });
+            dataStream.forEach(file -> dataListModel.addElement(file.getFileName().toString()));
             dataStream.close();
         } catch (IOException e) {
             throw new RuntimeException(e);

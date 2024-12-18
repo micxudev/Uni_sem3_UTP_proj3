@@ -8,6 +8,7 @@ public class Manager {
     public static String MODELS_PACKAGE = "org.s30173.models.";
     public static String MODELS_DIR     = "src/main/java/org/s30173/models";
     public static String DATA_DIR       = "src/data/";
+    public static String SCRIPTS_DIR    = "src/scripts/";
 
     public static final Color BG_COLOR       = new Color(30, 31, 34);
     public static final Color BG_COLOR2      = new Color(43, 45, 48);
@@ -24,5 +25,5 @@ public class Manager {
     public static final Border DEF_BORDER = new LineBorder(BORDER_COLOR, 1);
 
     public static final Dimension FRAME_SIZE     = new Dimension(800, 600);
-    public static final Dimension FRAME_MIN_SIZE = new Dimension(660, 400);
+    public static final Dimension FRAME_MIN_SIZE = new Dimension(750, 400);
 }
