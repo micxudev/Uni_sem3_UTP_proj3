@@ -4,7 +4,6 @@ import org.s30173.controller.Controller;
 
 import javax.script.ScriptException;
 import javax.swing.*;
-import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 import java.awt.*;
@@ -225,12 +224,10 @@ public class ModellingFrameworkSample {
         sd.setVisible(true);
     }
 
-    public static void populateColumns(String[] columnNames) {
-        // clear old data
+    public static void addColumns(String[] columnNames) {
         tableModel.setNumRows(0);
         tableModel.setColumnCount(0);
 
-        // add new columns
         tableModel.addColumn("");
         for (String s : columnNames)
             tableModel.addColumn(s);
@@ -266,11 +263,9 @@ public class ModellingFrameworkSample {
         }
 
         controller = new Controller(MODELS_PACKAGE + modelValue);
-        String r = controller
+        controller
             .readDataFrom(DATA_DIR + dataValue)
-            .runModel()
-            .getResultsAsTsv();
-        System.out.println(r);
+            .runModel();
     }
 
     private static void runScriptFromFileClickAction(JFileChooser fc) {

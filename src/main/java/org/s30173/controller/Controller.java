@@ -5,7 +5,6 @@ import org.s30173.helpers.Bind;
 import org.s30173.helpers.Model;
 
 import javax.script.*;
-import javax.swing.table.DefaultTableModel;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.file.Files;
@@ -28,8 +27,6 @@ public class Controller {
     private String[] lata;
 
     ScriptEngine groovy = new ScriptEngineManager().getEngineByName("groovy");
-    private final StringBuilder tvsData = new StringBuilder(4096);
-
 
     public Controller(String modelClassName) {
         try {
@@ -69,11 +66,7 @@ public class Controller {
         // make fields (with @Bind from the model) available in the script
         bindFields.forEach((field, name) -> groovy.put(name, getValue(field)));
 
-        // add columns
-        ModellingFrameworkSample.populateColumns(lata);
-
-        // add rows + build tsvData
-        appendTvsData("LATA", String.join("\t", lata));
+        ModellingFrameworkSample.addColumns(lata);
         addBindFieldsIntoTable();
         return this;
     }
@@ -96,16 +89,11 @@ public class Controller {
 
         // update previous rows
         tableModel.setNumRows(0);
-        tvsData.setLength(0);
-        appendTvsData("LATA", String.join("\t", lata));
         addBindFieldsIntoTable();
-
-        scriptVars.forEach((name, value) -> {
-            addTableRow(name, value);
-            appendTvsData(name, fieldValueToStr(value));
-        });
+        scriptVars.forEach((name, value) -> addTableRow(name, value));
 
         // process vars after running script
+        // TODO: refactor (below)
         Bindings bindings = groovy.getBindings(ScriptContext.ENGINE_SCOPE);
         bindings.forEach((key, value) -> {
             if (key.length() == 1 &&
@@ -120,7 +108,6 @@ public class Controller {
             // save new vars and add new rows
             if (!bindFieldNames.contains(key) && !scriptVars.containsKey(key)) {
                 scriptVars.put(key, value);
-                appendTvsData(key, fieldValueToStr(value));
                 addTableRow(key, value);
             }
         });
@@ -129,7 +116,20 @@ public class Controller {
     }
 
     public String getResultsAsTsv() {
-        return tvsData.toString();
+        // TODO: refactor using streams
+        StringBuilder res = new StringBuilder(4096);
+        res.append("LATA\t").append(String.join("\t", lata)).append('\n');
+
+        bindFields.forEach((field, name) -> {
+            if (!name.equals("LL"))
+                res.append(name).append('\t').append(fieldValueToStr(getValue(field))).append('\n');
+        });
+
+        scriptVars.forEach((name, value) -> {
+            res.append(name).append('\t').append(fieldValueToStr(value)).append('\n');
+        });
+
+        return res.toString();
     }
 
 
@@ -179,7 +179,7 @@ public class Controller {
         symbols.setDecimalSeparator(',');
         symbols.setGroupingSeparator(' ');
 
-        String pattern = number < 100 ? "#,##0.##" : "#,##0.#";
+        String pattern = number < 10000 ? "#,##0.##" : "#,##0.#";
 
         DecimalFormat decFormat = new DecimalFormat(pattern, symbols);
         String formattedNumber = decFormat.format(number);
@@ -216,12 +216,8 @@ public class Controller {
 
     private void addBindFieldsIntoTable() {
         bindFields.forEach((field, name) -> {
-            if (name.equals("LL"))
-                return;
-
-            Object value = getValue(field);
-            addTableRow(name, value);
-            appendTvsData(name, fieldValueToStr(value));
+            if (!name.equals("LL"))
+                addTableRow(name, getValue(field));
         });
     }
 
@@ -236,9 +232,5 @@ public class Controller {
                     .collect(Collectors.joining("\t"));
 
         return value.toString();
-    }
-
-    private void appendTvsData(String name, String values) {
-        tvsData.append(name).append('\t').append(values).append('\n');
     }
 }
