@@ -20,21 +20,21 @@ import static org.s30173.ModellingFrameworkSample.tableModel;
 
 public class Controller {
     private final Model model;
-    private LinkedHashMap<Field, String> boundFields; // fields with @Bind : field_name
+    private LinkedHashMap<Field, String> bindFields;
 
-    private final HashMap<String, double[]> dataFromFile; // (var_name : values)
-    private String[] lata; // years (e.g. 2015, 2016 etc.)
+    private final Map<String, double[]> dataFromFile = new HashMap<>();
+    private String[] lata;
 
-    private final LinkedHashMap<String, Object> scriptVars; // vars that were created when scripting
+    // vars that were created when scripting
+    private final Map<String, Object> scriptVars = new LinkedHashMap<>();
+
 
     public Controller(String modelClassName) {
         try {
             this.model = (Model) Class.forName(modelClassName).getDeclaredConstructor().newInstance();
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException("Error creating model from class", e);
         }
-        this.dataFromFile = new HashMap<>();
-        this.scriptVars = new LinkedHashMap<>();
     }
 
     public Controller readDataFrom(String fileName) {
@@ -44,11 +44,10 @@ public class Controller {
                     lata = line.substring(5).trim().split("\\s+");
                 } else {
                     String[] parts = line.trim().split("\\s+");
-                    String varName = parts[0];
                     double[] values = Arrays.stream(parts, 1, parts.length)
                             .mapToDouble(Double::parseDouble)
                             .toArray();
-                    dataFromFile.put(varName, values);
+                    dataFromFile.put(parts[0], values);
                 }
             });
         } catch (IOException e) {
@@ -58,43 +57,17 @@ public class Controller {
     }
 
     public Controller runModel() {
-        try {
-            this.boundFields = getBindFields();
-            int LL = lata.length;
-
-            // initialize fields (only with annotation @Bind)
-            boundFields.forEach((field, name) -> {
-                try {
-                    if (name.equals("LL")) {
-                        field.set(model, LL);
-                        return;
-                    }
-
-                    double[] values = dataFromFile.get(name);
-                    if (values == null)
-                        return;
-
-                    double[] arr = new double[LL];
-
-                    // copy all from values (from file) to arr (actual data for each row)
-                    System.arraycopy(values, 0, arr, 0, values.length);
-
-                    // copy the last present value to the rest if needed
-                    if (values.length < LL) {
-                        double lastValue = values[values.length - 1];
-                        for (int i = values.length; i < LL; i++)
-                            arr[i] = lastValue;
-                    }
-
-                    field.set(model, arr);
-                } catch (IllegalAccessException e) {
-                    throw new RuntimeException(e);
-                }
-            });
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-
+        bindFields = getBindFields();
+        bindFields.forEach((field, name) -> {
+            try {
+                if (name.equals("LL"))
+                    field.set(model, lata.length);
+                else
+                    field.set(model, prepareArray(dataFromFile.get(name), lata.length));
+            } catch (IllegalAccessException e) {
+                throw new RuntimeException(e);
+            }
+        });
         model.run();
         return this;
     }
@@ -117,7 +90,7 @@ public class Controller {
         ScriptEngine groovy = manager.getEngineByName("groovy");
 
         // make fields (with @Bind from the model) available in the script
-        boundFields.forEach((field, name) -> {
+        bindFields.forEach((field, name) -> {
             try {
                 groovy.put(name, field.get(model));
             } catch (IllegalAccessException e) {
@@ -136,7 +109,7 @@ public class Controller {
         tableModel.setNumRows(0); // remove all rows (old data)
 
         // update old rows
-        boundFields.forEach((field, name) -> {
+        bindFields.forEach((field, name) -> {
             if (name.equals("LL"))
                 return;
 
@@ -183,7 +156,7 @@ public class Controller {
         res.append(String.join("\t", lata));
         res.append("\n");
 
-        boundFields.forEach((field, name) -> {
+        bindFields.forEach((field, name) -> {
             if (name.equals("LL"))
                 return;
 
@@ -202,7 +175,33 @@ public class Controller {
         return res.toString();
     }
 
+
     // Helpers
+    private LinkedHashMap<Field, String> getBindFields() {
+        return Arrays.stream(model.getClass().getDeclaredFields())
+                .filter(field -> field.isAnnotationPresent(Bind.class))
+                .peek(field -> field.setAccessible(true))
+                .collect(Collectors.toMap(
+                        field -> field,
+                        Field::getName,
+                        (existing, _) -> existing,
+                        LinkedHashMap::new
+                ));
+    }
+
+    private double[] prepareArray(double[] vals, int len) {
+        if (vals == null)
+            return new double[len];
+
+        double[] arr = new double[len];
+        System.arraycopy(vals, 0, arr, 0, vals.length);
+
+        if (vals.length < len)
+            Arrays.fill(arr, vals.length, len, vals[vals.length - 1]);
+
+        return arr;
+    }
+
     private String formatFieldValueAsStr(Object value) {
         if (value == null)
             return "null";
@@ -251,24 +250,13 @@ public class Controller {
 
     private LinkedHashMap<String, Object> getFieldsNamesWithBindFromModel() {
         LinkedHashMap<String, Object> map = new LinkedHashMap<>();
-        boundFields.forEach((field, name) -> {
+        bindFields.forEach((field, name) -> {
             try {
                 map.put(name, field.get(model));
             } catch (IllegalAccessException e) {
                 throw new RuntimeException(e);
             }
         });
-        return map;
-    }
-
-    private LinkedHashMap<Field, String> getBindFields() {
-        LinkedHashMap<Field, String> map = new LinkedHashMap<>();
-        Arrays.stream(model.getClass().getDeclaredFields())
-            .filter(field -> field.isAnnotationPresent(Bind.class))
-            .forEach(field -> {
-                field.setAccessible(true);
-                map.put(field, field.getName());
-            });
         return map;
     }
 

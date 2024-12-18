@@ -255,8 +255,10 @@ public class ModellingFrameworkSample {
         }
 
         controller = new Controller(MODELS_PACKAGE + modelValue);
-        controller.readDataFrom(DATA_DIR + dataValue).runModel();
-        String res = controller.getResultsAsTsv();
+        controller
+            .readDataFrom(DATA_DIR + dataValue)
+            .runModel()
+            .getResultsAsTsv();
     }
 
     private static void runScriptFromFileClickAction(JFileChooser fc) {
