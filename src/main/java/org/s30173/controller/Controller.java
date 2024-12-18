@@ -21,12 +21,12 @@ import static org.s30173.ModellingFrameworkSample.tableModel;
 public class Controller {
     private final String modelClassName;
     private Model model;
-    private LinkedHashMap<Field, String> boundFields;
+    private LinkedHashMap<Field, String> boundFields; // fields with @Bind : field_name
 
     private final HashMap<String, double[]> dataFromFile; // (var_name : values)
     private String[] lata; // years (e.g. 2015, 2016 etc.)
 
-    private final LinkedHashMap<String, Object> scriptVars; // variables that were created when scripting
+    private final LinkedHashMap<String, Object> scriptVars; // vars that were created when scripting
 
     public Controller(String modelClassName) {
         this.modelClassName = modelClassName;
@@ -63,7 +63,7 @@ public class Controller {
         try {
             // create new instance of a model
             this.model = (Model) Class.forName(modelClassName).getDeclaredConstructor().newInstance();
-            this.boundFields = getModelBoundFields();
+            this.boundFields = getBindFields();
             int LL = lata.length;
 
             // initialize fields (only with annotation @Bind)
@@ -116,7 +116,6 @@ public class Controller {
         return this;
     }
 
-
     public Controller runScript(String script) throws ScriptException {
         ScriptEngineManager manager = new ScriptEngineManager();
         ScriptEngine groovy = manager.getEngineByName("groovy");
@@ -154,7 +153,7 @@ public class Controller {
 
         // save new vars and add new rows
         Bindings bindings = groovy.getBindings(ScriptContext.ENGINE_SCOPE);
-        Map<String, Object> fieldsWithBind = getFieldsWithBindFromModel();
+        LinkedHashMap<String, Object> fieldsWithBind = getFieldsNamesWithBindFromModel();
         bindings.forEach((key, value) -> {
             if (key.length() == 1 &&
                 Character.isLetter(key.charAt(0)) &&
@@ -188,36 +187,24 @@ public class Controller {
         res.append(String.join("\t", lata));
         res.append("\n");
 
-        Arrays.stream(model.getClass().getDeclaredFields())
-            .filter(field -> field.isAnnotationPresent(Bind.class))
-            .filter(field -> !field.getName().equals("LL"))
-            .forEach(field -> {
-                field.setAccessible(true);
-                try {
-                    String name = field.getName();
-                    Object value = field.get(model);
+        boundFields.forEach((field, name) -> {
+            if (name.equals("LL"))
+                return;
 
-                    // data for table
-                    Object[] tableRowData = new Object[lata.length+1];
-                    tableRowData[0] = name;
-                    Object[] data = formatFieldValueAsObjArr(value);
-                    System.arraycopy(data, 0, tableRowData, 1, data.length);
-
-                    tableModel.addRow(tableRowData);
-
-                    // string for console
-                    res
-                    .append(name)
-                    .append("\t")
-                    .append(formatFieldValueAsStr(value))
-                    .append("\n");
-                } catch (IllegalAccessException e) {
-                    throw new RuntimeException(e);
-                }
-            });
+            try {
+                Object value = field.get(model);
+                addNewRow(name, value);
+                res
+                .append(name)
+                .append("\t")
+                .append(formatFieldValueAsStr(value))
+                .append("\n");
+            } catch (IllegalAccessException e) {
+                throw new RuntimeException(e);
+            }
+        });
         return res.toString();
     }
-
 
     // Helpers
     private String formatFieldValueAsStr(Object value) {
@@ -266,24 +253,19 @@ public class Controller {
         return formattedNum;
     }
 
-    private Map<String, Object> getFieldsWithBindFromModel() {
-        Map<String, Object> map = new HashMap<>();
-        Arrays.stream(model.getClass().getDeclaredFields())
-            .filter(field -> field.isAnnotationPresent(Bind.class))
-            .forEach(field -> {
-                field.setAccessible(true);
-                try {
-                    String name = field.getName();
-                    Object value = field.get(model);
-                    map.put(name, value);
-                } catch (IllegalAccessException e) {
-                    throw new RuntimeException(e);
-                }
-            });
+    private LinkedHashMap<String, Object> getFieldsNamesWithBindFromModel() {
+        LinkedHashMap<String, Object> map = new LinkedHashMap<>();
+        boundFields.forEach((field, name) -> {
+            try {
+                map.put(name, field.get(model));
+            } catch (IllegalAccessException e) {
+                throw new RuntimeException(e);
+            }
+        });
         return map;
     }
 
-    private LinkedHashMap<Field, String> getModelBoundFields() {
+    private LinkedHashMap<Field, String> getBindFields() {
         LinkedHashMap<Field, String> map = new LinkedHashMap<>();
         Arrays.stream(model.getClass().getDeclaredFields())
             .filter(field -> field.isAnnotationPresent(Bind.class))
