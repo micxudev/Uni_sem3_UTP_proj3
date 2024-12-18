@@ -16,10 +16,12 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.s30173.ModellingFrameworkSample.tableModel;
+
 public class Controller {
     private final String modelClassName;
     private Model model;
-    private LinkedHashMap<Field, Boolean> boundFields;
+    private LinkedHashMap<Field, String> boundFields;
 
     private final HashMap<String, double[]> dataFromFile; // (var_name : values)
     private String[] lata; // years (e.g. 2015, 2016 etc.)
@@ -65,8 +67,7 @@ public class Controller {
             int LL = lata.length;
 
             // initialize fields (only with annotation @Bind)
-            boundFields.forEach((field, _) -> {
-                String name = field.getName();
+            boundFields.forEach((field, name) -> {
                 try {
                     if (name.equals("LL")) {
                         field.set(model, LL);
@@ -116,15 +117,14 @@ public class Controller {
     }
 
 
-
     public Controller runScript(String script) throws ScriptException {
         ScriptEngineManager manager = new ScriptEngineManager();
         ScriptEngine groovy = manager.getEngineByName("groovy");
 
         // make fields (with @Bind from the model) available in the script
-        boundFields.forEach((field, _) -> {
+        boundFields.forEach((field, name) -> {
             try {
-                groovy.put(field.getName(), field.get(model));
+                groovy.put(name, field.get(model));
             } catch (IllegalAccessException e) {
                 throw new RuntimeException(e);
             }
@@ -141,27 +141,18 @@ public class Controller {
         tableModel.setNumRows(0); // remove all rows (old data)
 
         // update old rows
-        boundFields.forEach((field, _) -> {
-            String name = field.getName();
-
+        boundFields.forEach((field, name) -> {
             if (name.equals("LL"))
                 return;
 
             try {
-                Object val = field.get(model);
-                // data for table
-                Object[] tableRowData = new Object[lata.length+1];
-                tableRowData[0] = name;
-                Object[] data = formatFieldValueAsObjArr(val);
-                System.arraycopy(data, 0, tableRowData, 1, data.length);
-
-                tableModel.addRow(tableRowData);
+                addNewRow(name, field.get(model));
             } catch (IllegalAccessException e) {
                 throw new RuntimeException(e);
             }
         });
 
-        // add new rows
+        // save new vars and add new rows
         Bindings bindings = groovy.getBindings(ScriptContext.ENGINE_SCOPE);
         Map<String, Object> fieldsWithBind = getFieldsWithBindFromModel();
         bindings.forEach((key, value) -> {
@@ -171,17 +162,10 @@ public class Controller {
                 return;
             }
 
-            // add new entries to the map newScriptFields
+            // add new entries
             if (!fieldsWithBind.containsKey(key)) {
                 scriptVars.put(key, value);
-
-                // data for table
-                Object[] tableRowData = new Object[lata.length+1];
-                tableRowData[0] = key;
-                Object[] data = formatFieldValueAsObjArr(value);
-                System.arraycopy(data, 0, tableRowData, 1, data.length);
-
-                tableModel.addRow(tableRowData);
+                addNewRow(key, value);
             }
         });
 
@@ -189,8 +173,6 @@ public class Controller {
     }
 
     public String getResultsAsTsv() {
-        DefaultTableModel tableModel = ModellingFrameworkSample.tableModel;
-
         // clear the table
         tableModel.setNumRows(0);
         tableModel.setColumnCount(0);
@@ -301,14 +283,22 @@ public class Controller {
         return map;
     }
 
-    private LinkedHashMap<Field, Boolean> getModelBoundFields() {
-        LinkedHashMap<Field, Boolean> map = new LinkedHashMap<>();
+    private LinkedHashMap<Field, String> getModelBoundFields() {
+        LinkedHashMap<Field, String> map = new LinkedHashMap<>();
         Arrays.stream(model.getClass().getDeclaredFields())
             .filter(field -> field.isAnnotationPresent(Bind.class))
             .forEach(field -> {
                 field.setAccessible(true);
-                map.put(field, true);
+                map.put(field, field.getName());
             });
         return map;
+    }
+
+    private void addNewRow(String name, Object value) {
+        Object[] tableRowData = new Object[lata.length+1];
+        tableRowData[0] = name;
+        Object[] data = formatFieldValueAsObjArr(value);
+        System.arraycopy(data, 0, tableRowData, 1, data.length);
+        tableModel.addRow(tableRowData);
     }
 }
