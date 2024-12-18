@@ -20,14 +20,15 @@ import static org.s30173.ModellingFrameworkSample.tableModel;
 
 public class Controller {
     private final Model model;
-    private LinkedHashMap<Field, String> bindFields;
-    private final HashSet<String> bindFieldNames = new HashSet<>();
+    private Map<Field, String> bindFields;
+    private final Set<String> bindFieldNames = new HashSet<>();
+    private final Map<String, Object> scriptVars = new LinkedHashMap<>();
 
     private final Map<String, double[]> dataFromFile = new HashMap<>();
     private String[] lata;
 
-    // vars that were created when scripting
-    private final Map<String, Object> scriptVars = new LinkedHashMap<>();
+    ScriptEngine groovy = new ScriptEngineManager().getEngineByName("groovy");
+    private final StringBuilder tvsData = new StringBuilder(4096);
 
 
     public Controller(String modelClassName) {
@@ -60,12 +61,20 @@ public class Controller {
     public Controller runModel() {
         bindFields = getBindFields();
         bindFields.forEach((field, name) -> {
-            if (name.equals("LL"))
-                setValue(field, lata.length);
-            else
-                setValue(field, prepareArray(dataFromFile.get(name), lata.length));
+            Object value = name.equals("LL") ? lata.length : prepareArray(dataFromFile.get(name), lata.length);
+            setValue(field, value);
         });
         model.run();
+
+        // make fields (with @Bind from the model) available in the script
+        bindFields.forEach((field, name) -> groovy.put(name, getValue(field)));
+
+        // add columns
+        ModellingFrameworkSample.populateColumns(lata);
+
+        // add rows + build tsvData
+        appendTvsData("LATA", String.join("\t", lata));
+        addBindFieldsIntoTable();
         return this;
     }
 
@@ -83,30 +92,20 @@ public class Controller {
     }
 
     public Controller runScript(String script) throws ScriptException {
-        ScriptEngineManager manager = new ScriptEngineManager();
-        ScriptEngine groovy = manager.getEngineByName("groovy");
-
-        // make fields (with @Bind from the model) available in the script
-        bindFields.forEach((field, name) -> groovy.put(name, getValue(field)));
-
-        // make fields from previous scripts available in this script
-        scriptVars.forEach(groovy::put);
-
-        // run this script
         groovy.eval(script);
 
-        // update table
-        DefaultTableModel tableModel = ModellingFrameworkSample.tableModel;
-        tableModel.setNumRows(0); // remove all rows (old data)
+        // update previous rows
+        tableModel.setNumRows(0);
+        tvsData.setLength(0);
+        appendTvsData("LATA", String.join("\t", lata));
+        addBindFieldsIntoTable();
 
-        // update old rows
-        bindFields.forEach((field, name) -> {
-            if (name.equals("LL"))
-                return;
-            addTableRow(name, getValue(field));
+        scriptVars.forEach((name, value) -> {
+            addTableRow(name, value);
+            appendTvsData(name, fieldValueToStr(value));
         });
 
-        // save new vars and add new rows
+        // process vars after running script
         Bindings bindings = groovy.getBindings(ScriptContext.ENGINE_SCOPE);
         bindings.forEach((key, value) -> {
             if (key.length() == 1 &&
@@ -115,9 +114,13 @@ public class Controller {
                 return;
             }
 
-            // add new entries
-            if (!bindFieldNames.contains(key)) {
+            if (key.equals("LL"))
+                return;
+
+            // save new vars and add new rows
+            if (!bindFieldNames.contains(key) && !scriptVars.containsKey(key)) {
                 scriptVars.put(key, value);
+                appendTvsData(key, fieldValueToStr(value));
                 addTableRow(key, value);
             }
         });
@@ -126,30 +129,7 @@ public class Controller {
     }
 
     public String getResultsAsTsv() {
-        // clear the table
-        tableModel.setNumRows(0);
-        tableModel.setColumnCount(0);
-
-        // add columns
-        tableModel.addColumn("");
-        for (String s : lata)
-            tableModel.addColumn(s);
-
-        // build the result string (for console)
-        StringBuilder res = new StringBuilder();
-        res.append("LATA\t");
-        res.append(String.join("\t", lata));
-        res.append("\n");
-
-        bindFields.forEach((field, name) -> {
-            if (name.equals("LL"))
-                return;
-
-            Object value = getValue(field);
-            addTableRow(name, value);
-            res.append(name).append("\t").append(fieldValueToStr(value)).append("\n");
-        });
-        return res.toString();
+        return tvsData.toString();
     }
 
 
@@ -211,11 +191,11 @@ public class Controller {
     }
 
     private void addTableRow(String name, Object value) {
-        Object[] tableRowData = new Object[lata.length+1];
-        tableRowData[0] = name;
+        Object[] rowData = new Object[lata.length+1];
+        rowData[0] = name;
         Object[] data = formatFieldValues(value);
-        System.arraycopy(data, 0, tableRowData, 1, data.length);
-        tableModel.addRow(tableRowData);
+        System.arraycopy(data, 0, rowData, 1, data.length);
+        tableModel.addRow(rowData);
     }
 
     private Object getValue(Field field) {
@@ -234,6 +214,16 @@ public class Controller {
         }
     }
 
+    private void addBindFieldsIntoTable() {
+        bindFields.forEach((field, name) -> {
+            if (name.equals("LL"))
+                return;
+
+            Object value = getValue(field);
+            addTableRow(name, value);
+            appendTvsData(name, fieldValueToStr(value));
+        });
+    }
 
     // For console log
     private String fieldValueToStr(Object value) {
@@ -246,5 +236,9 @@ public class Controller {
                     .collect(Collectors.joining("\t"));
 
         return value.toString();
+    }
+
+    private void appendTvsData(String name, String values) {
+        tvsData.append(name).append('\t').append(values).append('\n');
     }
 }

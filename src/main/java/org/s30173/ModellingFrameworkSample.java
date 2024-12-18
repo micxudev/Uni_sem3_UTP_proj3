@@ -225,6 +225,17 @@ public class ModellingFrameworkSample {
         sd.setVisible(true);
     }
 
+    public static void populateColumns(String[] columnNames) {
+        // clear old data
+        tableModel.setNumRows(0);
+        tableModel.setColumnCount(0);
+
+        // add new columns
+        tableModel.addColumn("");
+        for (String s : columnNames)
+            tableModel.addColumn(s);
+    }
+
 
     // ----- Logic -----
     private static void loadModelsAndDataIntoLists() {
@@ -255,10 +266,11 @@ public class ModellingFrameworkSample {
         }
 
         controller = new Controller(MODELS_PACKAGE + modelValue);
-        controller
+        String r = controller
             .readDataFrom(DATA_DIR + dataValue)
             .runModel()
             .getResultsAsTsv();
+        System.out.println(r);
     }
 
     private static void runScriptFromFileClickAction(JFileChooser fc) {
