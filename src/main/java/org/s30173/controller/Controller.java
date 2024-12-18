@@ -21,6 +21,7 @@ import static org.s30173.ModellingFrameworkSample.tableModel;
 public class Controller {
     private final Model model;
     private LinkedHashMap<Field, String> bindFields;
+    private final HashSet<String> bindFieldNames = new HashSet<>();
 
     private final Map<String, double[]> dataFromFile = new HashMap<>();
     private String[] lata;
@@ -51,7 +52,7 @@ public class Controller {
                 }
             });
         } catch (IOException e) {
-            throw new RuntimeException("Error reading file: " + fileName, e);
+            throw new RuntimeException("Error reading data file: " + fileName, e);
         }
         return this;
     }
@@ -59,29 +60,25 @@ public class Controller {
     public Controller runModel() {
         bindFields = getBindFields();
         bindFields.forEach((field, name) -> {
-            try {
-                if (name.equals("LL"))
-                    field.set(model, lata.length);
-                else
-                    field.set(model, prepareArray(dataFromFile.get(name), lata.length));
-            } catch (IllegalAccessException e) {
-                throw new RuntimeException(e);
-            }
+            if (name.equals("LL"))
+                setValue(field, lata.length);
+            else
+                setValue(field, prepareArray(dataFromFile.get(name), lata.length));
         });
         model.run();
         return this;
     }
 
     public Controller runScriptFromFile(String fileName) throws ScriptException {
-        StringBuilder str = new StringBuilder();
+        StringBuilder script = new StringBuilder();
 
         try (Stream<String> lines = Files.lines(Path.of(fileName))) {
-            lines.forEach(line -> str.append(line).append("\n"));
+            lines.forEach(line -> script.append(line).append('\n'));
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException("Error reading script file: " + fileName, e);
         }
 
-        runScript(str.toString());
+        runScript(script.toString());
         return this;
     }
 
@@ -90,13 +87,7 @@ public class Controller {
         ScriptEngine groovy = manager.getEngineByName("groovy");
 
         // make fields (with @Bind from the model) available in the script
-        bindFields.forEach((field, name) -> {
-            try {
-                groovy.put(name, field.get(model));
-            } catch (IllegalAccessException e) {
-                throw new RuntimeException(e);
-            }
-        });
+        bindFields.forEach((field, name) -> groovy.put(name, getValue(field)));
 
         // make fields from previous scripts available in this script
         scriptVars.forEach(groovy::put);
@@ -112,17 +103,11 @@ public class Controller {
         bindFields.forEach((field, name) -> {
             if (name.equals("LL"))
                 return;
-
-            try {
-                addNewRow(name, field.get(model));
-            } catch (IllegalAccessException e) {
-                throw new RuntimeException(e);
-            }
+            addTableRow(name, getValue(field));
         });
 
         // save new vars and add new rows
         Bindings bindings = groovy.getBindings(ScriptContext.ENGINE_SCOPE);
-        LinkedHashMap<String, Object> fieldsWithBind = getFieldsNamesWithBindFromModel();
         bindings.forEach((key, value) -> {
             if (key.length() == 1 &&
                 Character.isLetter(key.charAt(0)) &&
@@ -131,9 +116,9 @@ public class Controller {
             }
 
             // add new entries
-            if (!fieldsWithBind.containsKey(key)) {
+            if (!bindFieldNames.contains(key)) {
                 scriptVars.put(key, value);
-                addNewRow(key, value);
+                addTableRow(key, value);
             }
         });
 
@@ -160,17 +145,9 @@ public class Controller {
             if (name.equals("LL"))
                 return;
 
-            try {
-                Object value = field.get(model);
-                addNewRow(name, value);
-                res
-                .append(name)
-                .append("\t")
-                .append(fieldValueToStr(value))
-                .append("\n");
-            } catch (IllegalAccessException e) {
-                throw new RuntimeException(e);
-            }
+            Object value = getValue(field);
+            addTableRow(name, value);
+            res.append(name).append("\t").append(fieldValueToStr(value)).append("\n");
         });
         return res.toString();
     }
@@ -180,7 +157,10 @@ public class Controller {
     private LinkedHashMap<Field, String> getBindFields() {
         return Arrays.stream(model.getClass().getDeclaredFields())
                 .filter(field -> field.isAnnotationPresent(Bind.class))
-                .peek(field -> field.setAccessible(true))
+                .peek(field -> {
+                    field.setAccessible(true);
+                    bindFieldNames.add(field.getName());
+                })
                 .collect(Collectors.toMap(
                         field -> field,
                         Field::getName,
@@ -200,18 +180,6 @@ public class Controller {
             Arrays.fill(arr, vals.length, len, vals[vals.length - 1]);
 
         return arr;
-    }
-
-    private LinkedHashMap<String, Object> getFieldsNamesWithBindFromModel() {
-        LinkedHashMap<String, Object> map = new LinkedHashMap<>();
-        bindFields.forEach((field, name) -> {
-            try {
-                map.put(name, field.get(model));
-            } catch (IllegalAccessException e) {
-                throw new RuntimeException(e);
-            }
-        });
-        return map;
     }
 
     private Object[] formatFieldValues(Object value) {
@@ -242,12 +210,28 @@ public class Controller {
         return formattedNumber;
     }
 
-    private void addNewRow(String name, Object value) {
+    private void addTableRow(String name, Object value) {
         Object[] tableRowData = new Object[lata.length+1];
         tableRowData[0] = name;
         Object[] data = formatFieldValues(value);
         System.arraycopy(data, 0, tableRowData, 1, data.length);
         tableModel.addRow(tableRowData);
+    }
+
+    private Object getValue(Field field) {
+        try {
+            return field.get(model);
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException("Failed to get field's value: " + field.getName(), e);
+        }
+    }
+
+    private void setValue(Field field, Object value) {
+        try {
+            field.set(model, value);
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException("Failed to set field's value: " + field.getName(), e);
+        }
     }
 
 
