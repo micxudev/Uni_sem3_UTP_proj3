@@ -19,8 +19,7 @@ import java.util.stream.Stream;
 import static org.s30173.ModellingFrameworkSample.tableModel;
 
 public class Controller {
-    private final String modelClassName;
-    private Model model;
+    private final Model model;
     private LinkedHashMap<Field, String> boundFields; // fields with @Bind : field_name
 
     private final HashMap<String, double[]> dataFromFile; // (var_name : values)
@@ -29,40 +28,37 @@ public class Controller {
     private final LinkedHashMap<String, Object> scriptVars; // vars that were created when scripting
 
     public Controller(String modelClassName) {
-        this.modelClassName = modelClassName;
+        try {
+            this.model = (Model) Class.forName(modelClassName).getDeclaredConstructor().newInstance();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
         this.dataFromFile = new HashMap<>();
         this.scriptVars = new LinkedHashMap<>();
     }
 
     public Controller readDataFrom(String fileName) {
-        // read the data from the file and store it in the map (var_name : values)
         try (Stream<String> lines = Files.lines(Path.of(fileName))) {
             lines.forEach(line -> {
                 if (line.startsWith("LATA ")) {
                     lata = line.substring(5).trim().split("\\s+");
                 } else {
-                    String[] arr = line.trim().split("\\s+");
-                    String varName = arr[0];
-
-                    double[] values = new double[arr.length - 1];
-                    for (int i = 1; i < arr.length; i++)
-                        values[i-1] = (Double.parseDouble(arr[i]));
-
+                    String[] parts = line.trim().split("\\s+");
+                    String varName = parts[0];
+                    double[] values = Arrays.stream(parts, 1, parts.length)
+                            .mapToDouble(Double::parseDouble)
+                            .toArray();
                     dataFromFile.put(varName, values);
                 }
             });
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException("Error reading file: " + fileName, e);
         }
         return this;
     }
 
     public Controller runModel() {
-        // assumption: this method should not be called
-        // before readDataFrom() method, because data map will be empty
         try {
-            // create new instance of a model
-            this.model = (Model) Class.forName(modelClassName).getDeclaredConstructor().newInstance();
             this.boundFields = getBindFields();
             int LL = lata.length;
 
