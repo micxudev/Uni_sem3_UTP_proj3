@@ -20,19 +20,19 @@ import static org.s30173.ModellingFrameworkSample.tableModel;
 public class Controller {
     private final Model model;
     private Map<Field, String> bindFields;
-    private final Set<String> bindFieldNames = new HashSet<>();
-    private final Map<String, Object> scriptVars = new LinkedHashMap<>();
+    private final Map<String, Field> bindFieldNames = new HashMap<>();
 
     private final Map<String, double[]> dataFromFile = new HashMap<>();
     private String[] lata;
 
+    private final Map<String, Object> scriptVars = new LinkedHashMap<>();
     ScriptEngine groovy = new ScriptEngineManager().getEngineByName("groovy");
 
     public Controller(String modelClassName) {
         try {
             this.model = (Model) Class.forName(modelClassName).getDeclaredConstructor().newInstance();
         } catch (Exception e) {
-            throw new RuntimeException("Error creating model from class", e);
+            throw new RuntimeException("Error creating model from class: " + modelClassName, e);
         }
     }
 
@@ -57,6 +57,7 @@ public class Controller {
 
     public Controller runModel() {
         bindFields = getBindFields();
+
         bindFields.forEach((field, name) -> {
             Object value = name.equals("LL") ? lata.length : prepareArray(dataFromFile.get(name), lata.length);
             setValue(field, value);
@@ -68,49 +69,69 @@ public class Controller {
 
         ModellingFrameworkSample.addColumns(lata);
         addBindFieldsIntoTable();
+
         return this;
     }
 
     public Controller runScriptFromFile(String fileName) throws ScriptException {
-        StringBuilder script = new StringBuilder();
+        String script;
 
         try (Stream<String> lines = Files.lines(Path.of(fileName))) {
-            lines.forEach(line -> script.append(line).append('\n'));
+            script = lines.collect(Collectors.joining("\n"));
         } catch (IOException e) {
             throw new RuntimeException("Error reading script file: " + fileName, e);
         }
 
-        runScript(script.toString());
+        runScript(script);
         return this;
     }
 
     public Controller runScript(String script) throws ScriptException {
         groovy.eval(script);
 
-        // update previous rows
-        tableModel.setNumRows(0);
-        addBindFieldsIntoTable();
-        scriptVars.forEach((name, value) -> addTableRow(name, value));
+        // process script vars after running the script
+        List<String> varsToRemove = new ArrayList<>();
 
-        // process vars after running script
-        // TODO: refactor (below)
         Bindings bindings = groovy.getBindings(ScriptContext.ENGINE_SCOPE);
         bindings.forEach((key, value) -> {
             if (key.length() == 1 &&
                 Character.isLetter(key.charAt(0)) &&
                 Character.isLowerCase(key.charAt(0))) {
+                varsToRemove.add(key);
                 return;
             }
 
-            if (key.equals("LL"))
-                return;
+            // Q: what to do with LL field? (Allow to update it or keep the original value)
+            if (key.equals("LL")) {
+                // doing this will keep the original LL's value for scripts
+                // (as well as value stored as a field in an object will NOT be changed)
+                bindings.put(key, lata.length);
 
-            // save new vars and add new rows
-            if (!bindFieldNames.contains(key) && !scriptVars.containsKey(key)) {
-                scriptVars.put(key, value);
-                addTableRow(key, value);
+                // doing this will change LL's value (stored as a field in model) to a new value
+                // (as well as LL's value for scripts will be a new one)
+                /*setValue(bindFieldNames.get(key), value);*/
+
+                return;
             }
+
+            // update @Bind field's value because it might have changed during this script
+            Field field = bindFieldNames.get(key);
+            if (field != null) {
+                setValue(field, value);
+                return;
+            }
+
+            // save new script var or update old value
+            scriptVars.put(key, value);
         });
+
+        // remove lowercase single letters (e.g. i, j, k, p) from script vars
+        varsToRemove.forEach(varName -> bindings.remove(varName));
+
+        // update table
+        tableModel.setNumRows(0); // clear old rows
+        addBindFieldsIntoTable(); // add rows with @Bind
+        scriptVars.forEach((name, value) -> addTableRow(name, value)); // add rows from script vars
 
         return this;
     }
@@ -139,7 +160,7 @@ public class Controller {
                 .filter(field -> field.isAnnotationPresent(Bind.class))
                 .peek(field -> {
                     field.setAccessible(true);
-                    bindFieldNames.add(field.getName());
+                    bindFieldNames.put(field.getName(), field);
                 })
                 .collect(Collectors.toMap(
                         field -> field,
@@ -166,10 +187,11 @@ public class Controller {
         if (value == null)
             return new Object[0];
 
-        if (value.getClass().isArray() && value instanceof double[])
+        if (value instanceof double[]) {
             return Arrays.stream((double[]) value)
                     .mapToObj(Controller::formatNumber)
                     .toArray();
+        }
 
         return new String[]{value.toString()};
     }
