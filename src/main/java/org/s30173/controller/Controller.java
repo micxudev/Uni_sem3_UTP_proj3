@@ -19,7 +19,7 @@ import static org.s30173.ModellingFrameworkSample.tableModel;
 
 public class Controller {
     private final Model model;
-    private Map<Field, String> bindFields;
+    private final Set<Field> bindFields;
     private final Map<String, Field> bindFieldNames = new HashMap<>();
 
     private final Map<String, double[]> dataFromFile = new HashMap<>();
@@ -31,6 +31,7 @@ public class Controller {
     public Controller(String modelClassName) {
         try {
             this.model = (Model) Class.forName(modelClassName).getDeclaredConstructor().newInstance();
+            this.bindFields = getBindFields();
         } catch (Exception e) {
             throw new RuntimeException("Error creating model from class: " + modelClassName, e);
         }
@@ -56,16 +57,15 @@ public class Controller {
     }
 
     public Controller runModel() {
-        bindFields = getBindFields();
-
-        bindFields.forEach((field, name) -> {
-            Object value = name.equals("LL") ? lata.length : prepareArray(dataFromFile.get(name), lata.length);
+        bindFields.forEach((field) -> {
+            Object value = field.getName().equals("LL") ?
+                lata.length : prepareArray(dataFromFile.get(field.getName()), lata.length);
             setValue(field, value);
         });
         model.run();
 
         // make fields (with @Bind from the model) available in the script
-        bindFields.forEach((field, name) -> groovy.put(name, getValue(field)));
+        bindFields.forEach((field) -> groovy.put(field.getName(), getValue(field)));
 
         ModellingFrameworkSample.addColumns(lata);
         addBindFieldsIntoTable();
@@ -130,33 +130,25 @@ public class Controller {
 
         appendRow(res, "LATA", String.join("\t", lata));
 
-        bindFields.forEach((field, name) -> {
-            if (!name.equals("LL"))
-                appendRow(res, name, fieldValueToStr(getValue(field)));
-        });
+        bindFields.stream()
+           .filter(field -> !field.getName().equals("LL"))
+           .forEach(field -> appendRow(res, field.getName(), fieldValueToStr(getValue(field))));
 
-        scriptVars.forEach((name, value) ->
-                appendRow(res, name, fieldValueToStr(value))
-        );
+        scriptVars.forEach((name, value) -> appendRow(res, name, fieldValueToStr(value)));
 
         return res.toString();
     }
 
 
     // Helpers
-    private LinkedHashMap<Field, String> getBindFields() {
+    private LinkedHashSet<Field> getBindFields() {
         return Arrays.stream(model.getClass().getDeclaredFields())
                 .filter(field -> field.isAnnotationPresent(Bind.class))
                 .peek(field -> {
                     field.setAccessible(true);
                     bindFieldNames.put(field.getName(), field);
                 })
-                .collect(Collectors.toMap(
-                        field -> field,
-                        Field::getName,
-                        (existing, _) -> existing,
-                        LinkedHashMap::new
-                ));
+                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     private double[] prepareArray(double[] vals, int len) {
@@ -240,10 +232,9 @@ public class Controller {
     }
 
     private void addBindFieldsIntoTable() {
-        bindFields.forEach((field, name) -> {
-            if (!name.equals("LL"))
-                addTableRow(name, getValue(field));
-        });
+        bindFields.stream()
+            .filter(field -> !field.getName().equals("LL"))
+            .forEach((field) -> addTableRow(field.getName(), getValue(field)));
     }
 
     // For console log
