@@ -94,6 +94,7 @@ public class Controller {
 
         Bindings bindings = groovy.getBindings(ScriptContext.ENGINE_SCOPE);
         bindings.forEach((key, value) -> {
+            // collect single lowercase letters to remove later
             if (key.length() == 1 &&
                 Character.isLetter(key.charAt(0)) &&
                 Character.isLowerCase(key.charAt(0))) {
@@ -101,22 +102,9 @@ public class Controller {
                 return;
             }
 
-            // Q: what to do with LL field? (Allow to update it or keep the original value)
-            if (key.equals("LL")) {
-                // doing this will keep the original LL's value for scripts
-                // (as well as value stored as a field in an object will NOT be changed)
-                bindings.put(key, lata.length);
-
-                // doing this will change LL's value (stored as a field in model) to a new value
-                // (as well as LL's value for scripts will be a new one)
-                /*setValue(bindFieldNames.get(key), value);*/
-
-                return;
-            }
-
-            // update @Bind field's value because it might have changed during this script
             Field field = bindFieldNames.get(key);
             if (field != null) {
+                // update field's value because it might have changed during this script
                 setValue(field, value);
                 return;
             }
@@ -125,7 +113,6 @@ public class Controller {
             scriptVars.put(key, value);
         });
 
-        // remove lowercase single letters (e.g. i, j, k, p) from script vars
         varsToRemove.forEach(varName -> bindings.remove(varName));
 
         // update table
@@ -137,18 +124,18 @@ public class Controller {
     }
 
     public String getResultsAsTsv() {
-        // TODO: refactor using streams
         StringBuilder res = new StringBuilder(4096);
-        res.append("LATA\t").append(String.join("\t", lata)).append('\n');
+
+        appendRow(res, "LATA", String.join("\t", lata));
 
         bindFields.forEach((field, name) -> {
             if (!name.equals("LL"))
-                res.append(name).append('\t').append(fieldValueToStr(getValue(field))).append('\n');
+                appendRow(res, name, fieldValueToStr(getValue(field)));
         });
 
-        scriptVars.forEach((name, value) -> {
-            res.append(name).append('\t').append(fieldValueToStr(value)).append('\n');
-        });
+        scriptVars.forEach((name, value) ->
+                appendRow(res, name, fieldValueToStr(value))
+        );
 
         return res.toString();
     }
@@ -254,5 +241,9 @@ public class Controller {
                     .collect(Collectors.joining("\t"));
 
         return value.toString();
+    }
+
+    private void appendRow(StringBuilder sb, String name, String values) {
+        sb.append(name).append('\t').append(values).append('\n');
     }
 }
