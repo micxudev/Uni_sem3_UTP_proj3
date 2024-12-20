@@ -115,6 +115,8 @@ public class Controller {
 
         varsToRemove.forEach(varName -> bindings.remove(varName));
 
+        model.run(); // rerun calculations, as values might have changed during this script
+
         // update table
         tableModel.setNumRows(0); // clear old rows
         addBindFieldsIntoTable(); // add rows with @Bind
@@ -180,6 +182,12 @@ public class Controller {
                     .toArray();
         }
 
+        if (value instanceof int[]) {
+            return Arrays.stream((int[]) value)
+                    .mapToObj(Controller::formatNumber)
+                    .toArray();
+        }
+
         return new String[]{value.toString()};
     }
 
@@ -208,9 +216,9 @@ public class Controller {
     }
 
     private void addTableRow(String name, Object value) {
-        Object[] rowData = new Object[lata.length+1];
-        rowData[0] = name;
         Object[] data = formatFieldValues(value);
+        Object[] rowData = new Object[data.length+1];
+        rowData[0] = name;
         System.arraycopy(data, 0, rowData, 1, data.length);
         tableModel.addRow(rowData);
     }
