@@ -188,7 +188,15 @@ public class Controller {
         symbols.setDecimalSeparator(',');
         symbols.setGroupingSeparator(' ');
 
-        String pattern = number < 10000 ? "#,##0.##" : "#,##0.#";
+        // adjust the number of decimal places depending on the value range
+        String pattern;
+        if (number < 1) {
+            pattern = "#,##0.###";
+        } else if (number < 1000) {
+            pattern = "#,##0.##";
+        } else {
+            pattern = "#,##0.#";
+        }
 
         DecimalFormat decFormat = new DecimalFormat(pattern, symbols);
         String formattedNumber = decFormat.format(number);
