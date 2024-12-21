@@ -14,8 +14,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.s30173.ModellingFrameworkSample.tableModel;
-
 public class Controller {
     private final Model model;
     private final Set<Field> bindFields;
@@ -66,7 +64,7 @@ public class Controller {
         // make fields (with @Bind from the model) available in the script
         bindFields.forEach((field) -> groovy.put(field.getName(), getValue(field)));
 
-        ModellingFrameworkSample.addColumns(lata);
+        GUI.addColumns(lata);
         addBindFieldsIntoTable();
 
         return this;
@@ -117,7 +115,7 @@ public class Controller {
         model.run(); // rerun calculations, as values might have changed during this script
 
         // update table
-        tableModel.setNumRows(0); // clear old rows
+        GUI.tableModel.setNumRows(0); // clear old rows
         addBindFieldsIntoTable(); // add rows with @Bind
         scriptVars.forEach((name, value) -> addTableRow(name, value)); // add rows from script vars
 
@@ -211,7 +209,7 @@ public class Controller {
         Object[] rowData = new Object[data.length+1];
         rowData[0] = name;
         System.arraycopy(data, 0, rowData, 1, data.length);
-        tableModel.addRow(rowData);
+        GUI.tableModel.addRow(rowData);
     }
 
     private Object getValue(Field field) {

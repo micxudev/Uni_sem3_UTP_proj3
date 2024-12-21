@@ -13,7 +13,7 @@ import java.nio.file.Path;
 
 import static org.s30173.helpers.Manager.*;
 
-public class ModellingFrameworkSample {
+public class GUI {
     private static final DefaultListModel<String> modelsListModel = new DefaultListModel<>();
     private static final DefaultListModel<String> dataListModel = new DefaultListModel<>();
     public static final DefaultTableModel tableModel = new DefaultTableModel() {
@@ -34,7 +34,7 @@ public class ModellingFrameworkSample {
     private static final JFrame frame = new JFrame("Modelling framework sample");
 
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(ModellingFrameworkSample::initializeGUI);
+        SwingUtilities.invokeLater(GUI::initializeGUI);
         loadModelsAndDataIntoLists();
     }
 
