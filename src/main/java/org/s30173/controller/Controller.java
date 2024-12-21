@@ -242,7 +242,7 @@ public class Controller {
         if (value == null)
             return "NULL";
 
-        if (value.getClass().isArray() && value instanceof double[])
+        if (value instanceof double[])
             return Arrays.stream((double[]) value)
                     .mapToObj(Double::toString)
                     .collect(Collectors.joining("\t"));
