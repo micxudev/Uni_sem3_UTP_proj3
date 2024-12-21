@@ -10,6 +10,8 @@ public class Manager {
     public static String DATA_DIR       = "src/data/";
     public static String SCRIPTS_DIR    = "src/scripts/";
 
+    public static String FRAME_TITLE    = "Modelling framework sample";
+
     public static final Color BG_COLOR       = new Color(30, 31, 34);
     public static final Color BG_COLOR2      = new Color(43, 45, 48);
     public static final Color BORDER_COLOR   = new Color(66, 81, 106);

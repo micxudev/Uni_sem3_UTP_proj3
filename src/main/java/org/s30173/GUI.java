@@ -31,7 +31,7 @@ public class GUI {
     private static JButton scriptFileBtn;
     private static JButton adHocScriptButton;
 
-    private static final JFrame frame = new JFrame("Modelling framework sample");
+    private static final JFrame frame = new JFrame(FRAME_TITLE);
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(GUI::initializeGUI);
@@ -262,6 +262,7 @@ public class GUI {
             .readDataFrom(DATA_DIR + dataValue)
             .runModel();
 
+        frame.setTitle(FRAME_TITLE + " (" + modelValue + " - " + dataValue + ")");
         scriptFileBtn.setVisible(true);
         adHocScriptButton.setVisible(true);
     }
