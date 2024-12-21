@@ -30,6 +30,8 @@ public class ModellingFrameworkSample {
     public static final JTable viewTable = new JTable(tableModel);
 
     private static Controller controller;
+    private static JButton scriptFileBtn;
+    private static JButton adHocScriptButton;
 
     private static final JFrame frame = new JFrame("Modelling framework sample");
 
@@ -109,26 +111,16 @@ public class ModellingFrameworkSample {
         JPanel bp = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 5));
         bp.setOpaque(false);
 
-        JButton scriptFileBtn = new JButton("Run script from file");
+        scriptFileBtn = new JButton("Run script from file");
         styleButton(scriptFileBtn);
-        scriptFileBtn.addActionListener(_ -> {
-            if (controller != null) {
-                scriptFileButtonClickAction();
-            } else {
-                JOptionPane.showMessageDialog(frame, "Run the model first", "Warning", JOptionPane.WARNING_MESSAGE);
-            }
-        });
+        scriptFileBtn.addActionListener(_ -> scriptFileButtonClickAction());
+        scriptFileBtn.setVisible(false);
         bp.add(scriptFileBtn);
 
-        JButton adHocScriptButton = new JButton("Create and run ad hoc script");
+        adHocScriptButton = new JButton("Create and run ad hoc script");
         styleButton(adHocScriptButton);
-        adHocScriptButton.addActionListener(_ -> {
-            if (controller != null) {
-                scriptEditorButtonClickAction();
-            } else {
-                JOptionPane.showMessageDialog(frame, "Run the model first", "Warning", JOptionPane.WARNING_MESSAGE);
-            }
-        });
+        adHocScriptButton.addActionListener(_ -> scriptEditorButtonClickAction());
+        adHocScriptButton.setVisible(false);
         bp.add(adHocScriptButton);
 
         cp.add(scroll, BorderLayout.CENTER);
@@ -143,7 +135,8 @@ public class ModellingFrameworkSample {
         l.setBorder(DEF_BORDER);
         l.setCellRenderer(new DefaultListCellRenderer() {
             @Override
-            public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index,
+                                                          boolean isSelected, boolean cellHasFocus) {
                 JLabel l = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
                 l.setFont(PLAIN_M_FONT);
                 l.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
@@ -170,7 +163,10 @@ public class ModellingFrameworkSample {
         b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         b.setOpaque(true);
         b.setBorderPainted(true);
-        b.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(BORDER_COLOR, 1), BorderFactory.createEmptyBorder(5,10,5,10)));
+        b.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(BORDER_COLOR, 1),
+            BorderFactory.createEmptyBorder(5,10,5,10))
+        );
     }
 
     private static void scriptFileButtonClickAction() {
@@ -258,7 +254,8 @@ public class ModellingFrameworkSample {
         String dataValue = dataList.getSelectedValue();
 
         if (modelValue == null || dataValue == null) {
-            JOptionPane.showMessageDialog(frame, "Choose model and data first", "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(frame,
+            "Choose model and data first", "Error", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
@@ -266,13 +263,17 @@ public class ModellingFrameworkSample {
         controller
             .readDataFrom(DATA_DIR + dataValue)
             .runModel();
+
+        scriptFileBtn.setVisible(true);
+        adHocScriptButton.setVisible(true);
     }
 
     private static void runScriptFromFileClickAction(JFileChooser fc) {
         try {
             controller.runScriptFromFile(fc.getSelectedFile().getAbsolutePath());
         } catch (ScriptException e) {
-            JOptionPane.showMessageDialog(frame, "Invalid groovy script in the file", "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(frame,
+            "Invalid groovy script in the file", "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -281,7 +282,8 @@ public class ModellingFrameworkSample {
             controller.runScript(sa.getText());
             return true;
         } catch (ScriptException e) {
-            JOptionPane.showMessageDialog(frame, "Invalid groovy script", "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(frame,
+            "Invalid groovy script", "Error", JOptionPane.ERROR_MESSAGE);
             return false;
         }
     }
