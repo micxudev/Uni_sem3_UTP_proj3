@@ -23,7 +23,7 @@ public class Controller {
     private String[] lata;
 
     private final Map<String, Object> scriptVars = new LinkedHashMap<>();
-    ScriptEngine groovy = new ScriptEngineManager().getEngineByName("groovy");
+    private final ScriptEngine groovy = new ScriptEngineManager().getEngineByName("groovy");
 
     public Controller(String modelClassName) {
         try {
