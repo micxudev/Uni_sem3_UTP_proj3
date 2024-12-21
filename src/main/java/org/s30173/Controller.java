@@ -1,6 +1,5 @@
-package org.s30173.controller;
+package org.s30173;
 
-import org.s30173.ModellingFrameworkSample;
 import org.s30173.helpers.Bind;
 import org.s30173.helpers.Model;
 

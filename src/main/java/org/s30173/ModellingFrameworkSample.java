@@ -1,7 +1,5 @@
 package org.s30173;
 
-import org.s30173.controller.Controller;
-
 import javax.script.ScriptException;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
